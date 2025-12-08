@@ -1,24 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
-project(OpenCVTest)
+project(MotionDetector)
 
-# ==========================================
-# ★ 여기가 핵심 해결책입니다 ★
-# 컴퓨터가 엉뚱한 구버전을 찾지 못하게, MSYS2의 위치를 강제로 지정합니다.
-# (사용자 환경에 따라 경로는 조금 다를 수 있지만, 기본 설치라면 아래와 같습니다)
-set(OpenCV_DIR "C:/msys64/ucrt64/lib/cmake/opencv4")
-# ==========================================
+set(CMAKE_CXX_STANDARD 14)
 
-# 1. OpenCV 패키지를 찾아라
+# OpenCV 패키지 찾기
 find_package(OpenCV REQUIRED)
 
-# 2. 찾았으면 어디서 찾았는지 자수해라 (디버깅용)
-message(STATUS "------------------------------------------------")
-message(STATUS " >> OpenCV Found at: ${OpenCV_DIR}")
-message(STATUS " >> OpenCV Version : ${OpenCV_VERSION}")
-message(STATUS "------------------------------------------------")
+# 컴파일할 소스 파일들 지정
+add_executable(MotionDetector 
+    main.cpp
+    ImageProcessor.cpp
+    DisplayManager.cpp
+)
 
-# 3. 실행 파일 만들기
-add_executable(run_opencv main.cpp)
-
-# 4. 실행 파일에 OpenCV 연결
-target_link_libraries(run_opencv ${OpenCV_LIBS})
+# OpenCV 라이브러리 연결
+target_link_libraries(MotionDetector ${OpenCV_LIBS})

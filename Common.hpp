@@ -21,4 +21,7 @@ struct RuntimeState {
     cv::Mat diffFrame;
     std::vector<cv::Rect> motionRects;
     bool isRunning = true;
+    cv::VideoWriter writer;
+    bool isRecording = false;
+    int noMotionFrameCount = 0;
 };

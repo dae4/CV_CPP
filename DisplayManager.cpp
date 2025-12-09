@@ -9,7 +9,7 @@ namespace DisplayManager {
         for (const auto& rect : state.motionRects) {
             cv::rectangle(display, rect, cv::Scalar(0, 255, 0), 2);
             cv::putText(display, "Motion Detected", cv::Point(10, 20), 
-                        cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 255), 2);
+                        cv::FONT_ITALIC, 0.75, cv::Scalar(0, 0, 255), 2);
         }
 
         cv::imshow(config.windowName, display);

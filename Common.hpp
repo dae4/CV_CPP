@@ -24,4 +24,12 @@ struct RuntimeState {
     cv::VideoWriter writer;
     bool isRecording = false; 
     int noMotionFrameCount = 0;
+
+    cv::Rect roiRect;
+    bool useRoi = false;
+
+    bool isDragging = false;
+    cv::Point startPoint;
+    cv::Point curPoint;    
+
 };

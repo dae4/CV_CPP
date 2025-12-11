@@ -14,6 +14,10 @@ int main() {
         return -1;
     }
 
+    cv::namedWindow(config.windowName);
+    cv::setMouseCallback(config.windowName, DisplayManager::onMouse, &state);
+
+    std::cout << "Drag mouse to set ROI. Press 'r' to reset." << std::endl;
     std::cout << "System Started. Press 'q' to exit." << std::endl;
 
     while (state.isRunning) {

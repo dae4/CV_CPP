@@ -2,15 +2,23 @@ cmake_minimum_required(VERSION 3.10)
 project(MotionDetector)
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # C++14 표준을 강제합니다 (안전장치)
 
 # OpenCV 패키지 찾기
 find_package(OpenCV REQUIRED)
 
-# 컴파일할 소스 파일들 지정
+# [추천 1] 헤더 파일이 있는 경로(현재 폴더)를 인클루드 경로에 추가
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+# [추천 2] 소스 파일뿐만 아니라 헤더 파일(.hpp)도 여기에 적어주는 것이 좋습니다.
+# (컴파일에는 영향 없지만, IDE 프로젝트 트리에서 파일이 보이게 됩니다)
 add_executable(MotionDetector 
     main.cpp
     ImageProcessor.cpp
+    ImageProcessor.hpp
     DisplayManager.cpp
+    DisplayManager.hpp
+    Common.hpp
 )
 
 # OpenCV 라이브러리 연결

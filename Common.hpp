@@ -1,7 +1,7 @@
-// Common.hpp
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <vector>
+#include <string>
 
 // 설정 데이터
 struct AppConfig {
@@ -20,16 +20,18 @@ struct RuntimeState {
     cv::Mat prevFrame;
     cv::Mat diffFrame; 
     std::vector<cv::Rect> motionRects;
-    bool isRunning = true;
+    
+    bool isRunning = true;     // 루프 제어용
+    
+    // 녹화 관련
     cv::VideoWriter writer;
     bool isRecording = false; 
     int noMotionFrameCount = 0;
 
+    // ROI 관련
     cv::Rect roiRect;
     bool useRoi = false;
-
     bool isDragging = false;
     cv::Point startPoint;
     cv::Point curPoint;    
-
 };

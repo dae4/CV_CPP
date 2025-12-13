@@ -1,19 +1,15 @@
-// ImageProcessor.cpp
-#define _CRT_SECURE_NO_WARNINGS // localtime 사용 시 에러 방지 
+#define _CRT_SECURE_NO_WARNINGS 
 #include "ImageProcessor.hpp"
-#include <iomanip> // 날짜 포맷팅용 (put_time)
-#include <ctime>   // 시간 가져오기용
-#include <sstream> // 문자열 조합용
+#include <iomanip> 
+#include <ctime>   
+#include <sstream> 
 
 namespace ImageProcessor { 
-
 
     std::string getCurrentDateTime() {
         time_t now = time(0);
         struct tm* tstruct = localtime(&now);
-        
         std::stringstream ss;
-        // %Y:년도, %m:월, %d:일, %H:시, %M:분, %S:초
         ss << std::put_time(tstruct, "%Y-%m-%d_%H-%M-%S"); 
         return ss.str();
     }
@@ -21,72 +17,68 @@ namespace ImageProcessor {
     bool initializeCamera(cv::VideoCapture& cap, const AppConfig& config) {
         cap.open(config.deviceID);
         if (!cap.isOpened()) return false;
-        
         cap.set(cv::CAP_PROP_FRAME_WIDTH, config.width);
         cap.set(cv::CAP_PROP_FRAME_HEIGHT, config.height);
-        
         return true;
     }
 
     void preprocess(const cv::Mat& src, cv::Mat& dst) {
         cv::cvtColor(src, dst, cv::COLOR_BGR2GRAY);
-        cv::GaussianBlur(dst, dst, cv::Size(21, 21), 0); // 노이즈 감소
+        cv::GaussianBlur(dst, dst, cv::Size(21, 21), 0);
     }
 
+    // --- [Mode 1: Motion Detector] ---
     void detectMotion(RuntimeState& state, const AppConfig& config) {
         cv::Mat processArea;
 
+        // ROI 적용 여부 확인
         if (state.useRoi) {
-            // 안전한 ROI 사각형 계산 (이미지 밖으로 나가는 것 방지)
             cv::Rect safeRoi = state.roiRect & cv::Rect(0, 0, state.grayFrame.cols, state.grayFrame.rows);
-            processArea = state.grayFrame(safeRoi); // 이미지를 자름 (참조만 생성, 복사 아님)
+            if (safeRoi.area() > 0)
+                processArea = state.grayFrame(safeRoi);
+            else 
+                processArea = state.grayFrame;
         } else {
-            processArea = state.grayFrame; // 전체 이미지
+            processArea = state.grayFrame;
         }
 
         if (state.prevFrame.empty() || state.prevFrame.size() != processArea.size()) {
            state.prevFrame = processArea.clone();
-            return;
+           return;
         }
 
-        cv::absdiff(state.prevFrame, processArea, state.diffFrame); // 프레임 차이 계산
+        cv::absdiff(state.prevFrame, processArea, state.diffFrame);
         cv::threshold(state.diffFrame, state.diffFrame, config.thresholdVal, 255, cv::THRESH_BINARY); 
-        cv::dilate(state.diffFrame, state.diffFrame, cv::Mat(), cv::Point(-1, -1), 2); // 팽창 연산으로 노이즈 제거
+        cv::dilate(state.diffFrame, state.diffFrame, cv::Mat(), cv::Point(-1, -1), 2);
 
-        std::vector<std::vector<cv::Point>> contours;  // 윤곽선 검출
+        std::vector<std::vector<cv::Point>> contours;
         cv::findContours(state.diffFrame, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
         state.motionRects.clear();
-        for (const auto& contour : contours) { //auto : Datatype 추론
+        for (const auto& contour : contours) { 
             if (cv::contourArea(contour) < config.minArea) continue;
             cv::Rect r = cv::boundingRect(contour);
 
-            // 잘린 이미지(processArea) 기준의 좌표(r)를
-            // 전체 화면 기준의 좌표로 바꿔줘야 화면에 제대로 그려짐
             if (state.useRoi) {
-                r.x += state.roiRect.x; // ROI 시작점만큼 x 이동
-                r.y += state.roiRect.y; // ROI 시작점만큼 y 이동
+                r.x += state.roiRect.x; 
+                r.y += state.roiRect.y; 
             }
             state.motionRects.push_back(r);
         }
 
-        // isRecording
+        // 녹화 로직
         if(!state.motionRects.empty()) {
             state.noMotionFrameCount = 0;
             if(!state.isRecording) {
                 std::string fileName = "Rec_" + getCurrentDateTime() + ".avi";
-                
-                std::cout << "Recording started: " << fileName << std::endl;
-
-                state.writer.open(fileName, 
-                              cv::VideoWriter::fourcc('M','J','P','G'), 
-                              20, 
-                              cv::Size(config.width, config.height));
+                std::cout << "[Info] Recording started: " << fileName << std::endl;
+                state.writer.open(fileName, cv::VideoWriter::fourcc('M','J','P','G'), 20, cv::Size(config.width, config.height));
                 state.isRecording = true;
             }
         } else {
             state.noMotionFrameCount++;
-            if(state.noMotionFrameCount >= 30 && state.isRecording) { // 30 프레임 이상 움직임 없으면 녹화 중지
+            if(state.noMotionFrameCount >= 30 && state.isRecording) { 
+                std::cout << "[Info] Recording stopped." << std::endl;
                 state.writer.release();
                 state.isRecording = false;
             }
@@ -96,5 +88,36 @@ namespace ImageProcessor {
         }
 
         state.prevFrame = processArea.clone();
+    }
+
+    // --- [Mode 2: Optical Flow] ---
+    void computeOpticalFlow(RuntimeState& state) {
+        // Optical Flow는 ROI 없이 전체 화면 사용 예시
+        // prevFrame을 GrayScale 원본으로 사용 (전처리된 블러 이미지 말고)
+        cv::Mat currentGray;
+        cv::cvtColor(state.currentFrame, currentGray, cv::COLOR_BGR2GRAY);
+
+        if (state.prevFrame.empty() || state.prevFrame.size() != currentGray.size()) {
+            state.prevFrame = currentGray.clone();
+            return;
+        }
+
+        // 간단한 Farneback Dense Optical Flow 예시
+        cv::Mat flow;
+        // (입력1, 입력2, 출력, scale, levels, winsize, iterations, poly_n, poly_sigma, flags)
+        cv::calcOpticalFlowFarneback(state.prevFrame, currentGray, flow, 0.5, 3, 15, 3, 5, 1.2, 0);
+
+        // 시각화: 흐름을 격자 단위로 그림
+        for (int y = 0; y < flow.rows; y += 10) {
+            for (int x = 0; x < flow.cols; x += 10) {
+                const cv::Point2f& fxy = flow.at<cv::Point2f>(y, x);
+                if (fxy.x * fxy.x + fxy.y * fxy.y > 1) { // 움직임이 일정 이상일 때만
+                    cv::line(state.currentFrame, cv::Point(x, y), cv::Point(cvRound(x + fxy.x), cvRound(y + fxy.y)), cv::Scalar(0, 255, 0));
+                    cv::circle(state.currentFrame, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), -1);
+                }
+            }
+        }
+
+        state.prevFrame = currentGray.clone();
     }
 }

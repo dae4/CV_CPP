@@ -2,13 +2,24 @@
 #include "Common.hpp"
 
 namespace ImageProcessor {
-    std::string getCurrentDateTime();
+    // Utility: Initializes camera with config settings
     bool initializeCamera(cv::VideoCapture& cap, const AppConfig& config);
+    
+    // Utility: Pre-processing (Grayscale, Blur)
     void preprocess(const cv::Mat& src, cv::Mat& dst);
 
-    // [Mode 1] 모션 감지 & 녹화
+    // [Feature 1] Motion Detection Algorithm
     void detectMotion(RuntimeState& state, const AppConfig& config);
 
-    // [Mode 2] 옵티컬 플로우 (새로 추가됨)
+    // [Feature 2] Optical Flow Visualization
     void computeOpticalFlow(RuntimeState& state);
+
+    // [Feature 3] Face Detection & Anonymization (Blur)
+    void processFaceBlur(RuntimeState& state);
+
+    // [Feature 4] Object Tracking (KCF Algorithm)
+    void processObjectTracking(RuntimeState& state);
+
+    // [Feature 5] Air Canvas (Color Tracking)
+    void processAirCanvas(RuntimeState& state, const AppConfig& config);
 }

@@ -1,33 +1,9 @@
-// main.cpp
-#include <iostream>
-#include "Common.hpp"
-#include "ImageProcessor.hpp"
-#include "DisplayManager.hpp"
+#include "AppController.hpp"
 
-int main() {
-    AppConfig config;
-    RuntimeState state;
-    cv::VideoCapture cap;
+int main(int argc, char** argv) {
+    // Just create the controller and start the application
+    AppController app;
+    app.run(); 
 
-    if (!ImageProcessor::initializeCamera(cap, config)) {
-        std::cerr << "Error: Camera not accessible" << std::endl;
-        return -1;
-    }
-
-    std::cout << "System Started. Press 'q' to exit." << std::endl;
-
-    while (state.isRunning) {
-        cap >> state.currentFrame;
-        if (state.currentFrame.empty()) break;
-
-        ImageProcessor::preprocess(state.currentFrame, state.grayFrame);
-        ImageProcessor::detectMotion(state, config);
-
-        DisplayManager::render(state, config);
-        DisplayManager::handleInput(state);
-    }
-
-    cap.release();
-    cv::destroyAllWindows();
     return 0;
 }

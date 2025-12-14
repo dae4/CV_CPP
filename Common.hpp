@@ -1,27 +1,64 @@
-// Common.hpp
 #pragma once
 #include <opencv2/opencv.hpp>
+#include <opencv2/tracking.hpp>
 #include <vector>
+#include <string>
+#include <opencv2/dnn.hpp>
 
-// 설정 데이터
+//configuration parameters
 struct AppConfig {
-    int deviceID = 0;
-    int width = 640;
+    int deviceID = 0;   //Camera device ID
+    int width = 640;    
     int height = 480;
+
+    
+    // Motion detection parameters
     int thresholdVal = 30; 
-    int minArea = 500;  // 최소 움직임 영역
-    std::string windowName = "Motion Detector Engine";
+    int minArea = 500;  // region area threshold
+    std::string windowName = "Cv Application";
+
+    //Air cnavas settings
+    cv:: Scalar colorLower = cv:: Scalar(100, 150, 50);
+    cv:: Scalar colorUpper = cv:: Scalar(140, 255, 255);
+
 };
 
-// 런타임 상태 데이터
+
+// Runtime state variables
 struct RuntimeState {
     cv::Mat currentFrame;  
     cv::Mat grayFrame;  
     cv::Mat prevFrame;
     cv::Mat diffFrame; 
-    std::vector<cv::Rect> motionRects;
-    bool isRunning = true;
+    
+    bool isRunning = true;     // Control main loop
+    
+    // Recording variables
     cv::VideoWriter writer;
     bool isRecording = false; 
+
+     // Detected motion regions
+    std::vector<cv::Rect> motionRects;
     int noMotionFrameCount = 0;
+
+    // ROI selection variables
+    cv::Rect roiRect;
+    bool useRoi = false;
+    bool isDragging = false;
+    cv::Point startPoint;
+    cv::Point curPoint;  
+   
+    // Face Blur
+    bool faceModelLoaded = false;
+    cv::CascadeClassifier faceCascade;
+    cv::dnn::Net faceNet; 
+
+    // Object Tracker
+    bool isTracking = false;
+    cv::Ptr<cv:: Tracker> tracker;
+    
+
+    // Air Canvas
+    std::vector<std::vector<cv::Point>> canvasStrokes;
+    std::vector<cv::Point> currentStroke;
 };

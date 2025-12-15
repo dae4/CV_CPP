@@ -8,6 +8,12 @@
 
 namespace ImageProcessor { 
 
+    // Utility: Render FPS on frame
+    void renderFPS(cv::Mat& frame, const std::string& fpsString) {
+        cv::putText(frame, fpsString, cv::Point(frame.cols - 180, 30), // Top Right Corner
+                    cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2); // Yellow color
+    }
+
     // Helper: Generate timestamp string for filenames
     std::string getCurrentDateTime() {
         time_t now = time(0);

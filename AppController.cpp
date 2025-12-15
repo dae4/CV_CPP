@@ -1,4 +1,5 @@
 #include "AppController.hpp"
+#include "Timer.hpp"    
 
 AppController::AppController() {
     // Default config initialization if needed
@@ -36,7 +37,6 @@ void AppController::run() {
     }
 }
 
-// Common Setup Helper
 bool AppController::setupMode(const std::string& modeName) {
     config.windowName = modeName;
     if (!ImageProcessor::initializeCamera(cap, config)) {
@@ -155,12 +155,18 @@ void AppController::executeCanvasMode() {
 
 void AppController::executeYOLOMode() {
     if (!setupMode("Mode: YOLO Object Detection")) return;
+    
+    UtilityTimer timer;
 
     while (state.isRunning) {
+        timer.update();
+
         cap >> state.currentFrame;
         if (state.currentFrame.empty()) break;
 
         ImageProcessor::processYOLODetection(state, config); // Algo Call
+
+        ImageProcessor::renderFPS(state.currentFrame, timer.getFpsString()); // Render FPS
 
         cv::imshow(config.windowName, state.currentFrame);
         DisplayManager::handleInput(state);

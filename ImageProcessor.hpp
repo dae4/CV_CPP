@@ -7,6 +7,10 @@ namespace ImageProcessor {
     
     // Utility: Pre-processing (Grayscale, Blur)
     void preprocess(const cv::Mat& src, cv::Mat& dst);
+    
+    // Utility: Render FPS on frame
+    void renderFPS(cv::Mat& frame, const std::string& fpsString);
+
 
     // [Feature 1] Motion Detection Algorithm
     void detectMotion(RuntimeState& state, const AppConfig& config);
@@ -25,4 +29,6 @@ namespace ImageProcessor {
 
     // [Feature 6] YOLO Object Detection
     void processYOLODetection(RuntimeState& state, const AppConfig& config);
+
+    
 }

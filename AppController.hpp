@@ -24,4 +24,5 @@ private:
     void executeFaceBlurMode();
     void executeTrackerMode();
     void executeCanvasMode();
+    void executeYOLOMode();
 };

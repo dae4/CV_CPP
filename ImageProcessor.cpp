@@ -4,6 +4,7 @@
 #include <ctime>   
 #include <sstream> 
 #include <iostream>
+#include <fstream>
 
 namespace ImageProcessor { 
 
@@ -289,5 +290,168 @@ namespace ImageProcessor {
         for (size_t i = 1; i < state.currentStroke.size(); i++) {
             cv::line(state.currentFrame, state.currentStroke[i - 1], state.currentStroke[i], cv::Scalar(255, 255, 0), 3);
         }
+    }
+
+    // --- [Feature 6] YOLO Object Detection Implementation ---
+    void processYOLODetection(RuntimeState& state, const AppConfig& config) {
+        
+        if (!state.yoloModelLoaded) {
+            try {
+                // 클래스 이름 파일 읽기
+                std::ifstream ifs(config.yoloClassPath);
+                if (!ifs.is_open()) {
+                    std::cerr << "[Error] Failed to find 'classes.txt'!" << std::endl;
+                    return;
+                }
+                std::string line;
+                while (std::getline(ifs, line)) state.yoloClasses.push_back(line);
+
+                // YOLO 모델 로드 (ONNX)
+                state.yoloNet = cv::dnn::readNetFromONNX(config.yoloModelPath);
+                
+                // GPU 사용 가능 시 가속 (없으면 자동 CPU)
+                state.yoloNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+                state.yoloNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+
+                state.yoloModelLoaded = true;
+                std::cout << "[Info] YOLOv8 Model Loaded. Classes: " << state.yoloClasses.size() << std::endl;
+
+            } catch (cv::Exception& e) {
+                std::cerr << "[Error] YOLO Init: " << e.what() << std::endl;
+                std::cerr << ">> Check 'yolov8n.onnx' and 'classes.txt'!" << std::endl;
+                return;
+            }
+        }
+
+        if (state.currentFrame.empty()) {
+            std::cerr << "[Critical Error] Input Frame is EMPTY inside processYOLO!" << std::endl;
+            return;
+        }
+        std::cout << "[Debug] Frame Size: " << state.currentFrame.cols << " x " << state.currentFrame.rows << std::endl;
+        
+
+        // 2. 전처리 (Blob 생성)
+        // YOLOv8은 640x640 입력, 0~1 사이 값(1/255 scale), RGB 포맷을 원함
+        cv::Mat blob = cv::dnn::blobFromImage(state.currentFrame, 1.0 / 255.0, cv::Size(640, 640), cv::Scalar(), true, false);
+        
+        if (blob.empty()) {
+            std::cerr << "[Error] Blob is empty!" << std::endl;
+            return;
+        }
+        std::cout << "[Debug] Blob size: " << blob.size << std::endl; // [1, 3, 640, 640]이 나와야 함
+        state.yoloNet.setInput(blob);
+
+        // 3. 추론 (Inference)
+        std::vector<cv::Mat> outputs;
+        state.yoloNet.forward(outputs, state.yoloNet.getUnconnectedOutLayersNames());
+
+        // 4. 후처리 (Post-processing)
+        // YOLOv8 Output shape: [1, 84, 8400] -> (cx, cy, w, h, 80개 클래스 점수)
+        int dimensions = outputs[0].size[1];
+        int rows = outputs[0].size[2];
+        
+        // 데이터 파싱을 위해 차원 변환: [1, 84, 8400] -> [8400, 84] 로 전치(Transpose)
+        cv::Mat output_buffer = outputs[0].reshape(1, 84); 
+        cv::Mat output = output_buffer.t(); 
+        
+        if (dimensions > rows) { 
+            // [1, 8400, 84] 형태라면 그대로 사용
+            output = outputs[0].reshape(1, dimensions);
+        } else {
+            // [1, 84, 8400] 형태라면 전치(Transpose) 필요 (기존 코드)
+            cv::Mat output_buffer = outputs[0].reshape(1, dimensions);
+            output = output_buffer.t();
+        }
+
+        float* data = (float*)output.data;
+
+        std::vector<int> class_ids;
+        std::vector<float> confidences;
+        std::vector<cv::Rect> boxes;
+
+        float x_factor = (float)state.currentFrame.cols / 640.0f;
+        float y_factor = (float)state.currentFrame.rows / 640.0f;
+
+        int detectCount = 0; // [디버깅] 몇 개나 찾았나 세어보자
+
+        for (int i = 0; i < rows; ++i) {
+            float* classes_scores = data + 4;
+            cv::Mat scores(1, state.yoloClasses.size(), CV_32FC1, classes_scores);
+            cv::Point class_id;
+            
+            double max_class_score;
+            minMaxLoc(scores, 0, &max_class_score, 0, &class_id);
+
+            // [디버깅] 점수가 설정값보다 높으면 로그 출력
+            if (max_class_score > config.yoloScoreThreshold) {
+                
+                // ★★★ 여기가 핵심! 찾았으면 로그를 찍어라 ★★★
+                std::cout << "[YOLO] Found Class: " << class_id.x 
+                          << " (" << (state.yoloClasses.empty() ? "?" : state.yoloClasses[class_id.x]) << ")"
+                          << " Score: " << max_class_score << std::endl;
+
+                float cx = data[0];
+                float cy = data[1];
+                float w = data[2];
+                float h = data[3];
+                if (i == 0) {
+                   std::cout << "[DEBUG] Raw Coords: " << cx << ", " << cy << ", " << w << ", " << h << std::endl;
+                }
+                
+                if (cx < 1.0f && cy < 1.0f && w < 1.0f && h < 1.0f) {
+                    cx *= 640.0f;
+                    cy *= 640.0f;
+                    w *= 640.0f;
+                    h *= 640.0f;
+                }
+
+                int left = int((cx - 0.5 * w) * x_factor);
+                int top = int((cy - 0.5 * h) * y_factor);
+                int width = int(w * x_factor);
+                int height = int(h * y_factor);
+
+                boxes.push_back(cv::Rect(left, top, width, height));
+                confidences.push_back((float)max_class_score);
+                class_ids.push_back(class_id.x);
+                detectCount++;
+            }
+            data += 84;
+        }
+
+        // 5. NMS (Non-Maximum Suppression)
+        std::vector<int> indices;
+        cv::dnn::NMSBoxes(boxes, confidences, config.yoloConfThreshold, config.yoloNMSThreshold, indices);
+
+        // [디버깅] 최종적으로 남은 박스 개수
+        if (detectCount > 0) {
+            std::cout << "[YOLO] Raw Detections: " << detectCount << " -> After NMS: " << indices.size() << std::endl;
+        }
+
+        // 6. 그리기 (Drawing) - 이 부분이 없으면 화면에 안 나옵니다!
+        for (int i : indices) {
+            cv::Rect box = boxes[i];
+            int classId = class_ids[i];
+            float conf = confidences[i];
+
+            // 박스 그리기
+            cv::rectangle(state.currentFrame, box, cv::Scalar(0, 255, 0), 2);
+
+            // 텍스트 라벨
+            std::string className = (classId < state.yoloClasses.size()) ? state.yoloClasses[classId] : "Unknown";
+            std::string label = className + " " + cv::format("%.2f", conf);
+            
+            int baseLine;
+            cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+            
+            // 라벨 배경 (검은색)
+            cv::rectangle(state.currentFrame, 
+                          cv::Point(box.x, box.y - labelSize.height - 5), 
+                          cv::Point(box.x + labelSize.width, box.y), 
+                          cv::Scalar(255, 255, 255), -1);
+            // 라벨 글씨 (흰색)
+            cv::putText(state.currentFrame, label, cv::Point(box.x, box.y - 5), 
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0), 1);
+        }
+
     }
 }

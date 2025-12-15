@@ -13,6 +13,7 @@ void AppController::run() {
         std::cout << " 3. Face Blur" << std::endl;
         std::cout << " 4. Object Tracker" << std::endl;
         std::cout << " 5. Air Canvas" << std::endl;
+        std::cout << " 6. YOLO Object Detection" << std::endl;
         std::cout << " 0. Exit" << std::endl;
         std::cout << " Select >> ";
         std::cin >> choice;
@@ -29,6 +30,7 @@ void AppController::run() {
             case 3: executeFaceBlurMode(); break;
             case 4: executeTrackerMode(); break;
             case 5: executeCanvasMode(); break;
+            case 6: executeYOLOMode(); break;
             default: std::cout << "Invalid Selection." << std::endl;
         }
     }
@@ -147,6 +149,21 @@ void AppController::executeCanvasMode() {
             state.canvasStrokes.clear();
             state.currentStroke.clear();
         }
+    }
+    cv::destroyAllWindows();
+}
+
+void AppController::executeYOLOMode() {
+    if (!setupMode("Mode: YOLO Object Detection")) return;
+
+    while (state.isRunning) {
+        cap >> state.currentFrame;
+        if (state.currentFrame.empty()) break;
+
+        ImageProcessor::processYOLODetection(state, config); // Algo Call
+
+        cv::imshow(config.windowName, state.currentFrame);
+        DisplayManager::handleInput(state);
     }
     cv::destroyAllWindows();
 }

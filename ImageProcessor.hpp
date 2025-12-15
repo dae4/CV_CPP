@@ -22,4 +22,7 @@ namespace ImageProcessor {
 
     // [Feature 5] Air Canvas (Color Tracking)
     void processAirCanvas(RuntimeState& state, const AppConfig& config);
+
+    // [Feature 6] YOLO Object Detection
+    void processYOLODetection(RuntimeState& state, const AppConfig& config);
 }

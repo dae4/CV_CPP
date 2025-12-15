@@ -21,6 +21,13 @@ struct AppConfig {
     cv:: Scalar colorLower = cv:: Scalar(100, 150, 50);
     cv:: Scalar colorUpper = cv:: Scalar(140, 255, 255);
 
+    // YOLO settings
+    float yoloConfThreshold = 0.5f;
+    float yoloNMSThreshold = 0.4f;
+    float yoloScoreThreshold = 0.5f;
+    std::string yoloModelPath = "yolov8n.onnx";
+    std::string yoloClassPath = "classes.txt";
+
 };
 
 
@@ -61,4 +68,9 @@ struct RuntimeState {
     // Air Canvas
     std::vector<std::vector<cv::Point>> canvasStrokes;
     std::vector<cv::Point> currentStroke;
+
+    // YOLO Object Detection
+    cv::dnn::Net yoloNet;
+    std::vector<std::string> yoloClasses;
+    bool yoloModelLoaded = false;
 };

@@ -38,6 +38,11 @@ Smart Computer Vision System은 C++와 OpenCV를 활용하여 개발한 올인�
 
     * Interactive Drawing: 허공에 제스처를 취해 그림을 그리고, 키보드로 캔버스를 초기화합니다.
 
+6. 🧠 YOLOv8 Object Detector (실시간 사물 인식)
+    * State-of-the-Art Model: 경량화된 YOLOv8n (Nano) 모델을 사용하여 실시간 객체 탐지.
+
+    * YOLOv8.onnx 사용하여 객체탐지.
+
 ## 🛠 Tech Stack
     Language: C++ (C++14 Standard)
 
@@ -54,6 +59,8 @@ Smart Computer Vision System은 C++와 OpenCV를 활용하여 개발한 올인�
     res10_300x300_ssd_iter_140000.caffemodel
 
     (OpenCV 공식 GitHub의 samples/data/dnn/face_detector 경로에서 다운로드 가능)
+
+    YOLOv8 yolov8n.onnx, classes.txt
 
 2. Build & Execute
 ``` Bash

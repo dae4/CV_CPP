@@ -30,5 +30,7 @@ namespace ImageProcessor {
     // [Feature 6] YOLO Object Detection
     void processYOLODetection(RuntimeState& state, const AppConfig& config);
 
+    // [Feature 7] Traffic Counting
+    void processTrafficCounting(RuntimeState& state,const AppConfig& config);   
     
 }

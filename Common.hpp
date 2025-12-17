@@ -73,4 +73,10 @@ struct RuntimeState {
     cv::dnn::Net yoloNet;
     std::vector<std::string> yoloClasses;
     bool yoloModelLoaded = false;
+
+    // Traffic Counting
+    int trafficCount = 0;
+    std::map<int, cv::Point> prevPoints;
+    int nextObjectID = 0;
 };
+

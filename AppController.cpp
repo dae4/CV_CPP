@@ -15,6 +15,7 @@ void AppController::run() {
         std::cout << " 4. Object Tracker" << std::endl;
         std::cout << " 5. Air Canvas" << std::endl;
         std::cout << " 6. YOLO Object Detection" << std::endl;
+        std::cout << " 7. Traffic Counting" << std::endl;
         std::cout << " 0. Exit" << std::endl;
         std::cout << " Select >> ";
         std::cin >> choice;
@@ -32,6 +33,7 @@ void AppController::run() {
             case 4: executeTrackerMode(); break;
             case 5: executeCanvasMode(); break;
             case 6: executeYOLOMode(); break;
+            case 7: executeTrafficMode(); break;
             default: std::cout << "Invalid Selection." << std::endl;
         }
     }
@@ -172,4 +174,32 @@ void AppController::executeYOLOMode() {
         DisplayManager::handleInput(state);
     }
     cv::destroyAllWindows();
+}
+
+void AppController::executeTrafficMode() {
+    // 준비한 영상 경로로 수정하세요
+    std::string videoPath = "../asset/cctv.mp4"; 
+    cap.open(videoPath);
+
+    if (!cap.isOpened()) {
+        std::cerr << "Error: Could not open video file!" << std::endl;
+        return;
+    }
+
+    UtilityTimer timer;
+    while (state.isRunning) {
+        timer.update();
+        cv::Mat rawFrame;
+        cap >> rawFrame;
+        if (rawFrame.empty()) break; // 영상 끝나면 종료
+
+        cv::resize(rawFrame, state.currentFrame, cv::Size(640, 480), 0, 0, cv::INTER_AREA);
+        
+        ImageProcessor::processTrafficCounting(state, config);
+        ImageProcessor::renderFPS(state.currentFrame, timer.getFpsString());
+
+        cv::imshow(config.windowName, state.currentFrame);
+        if (DisplayManager::handleInput(state) == 'q') break;
+    }
+    cap.release();
 }

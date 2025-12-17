@@ -58,7 +58,7 @@ namespace DisplayManager {
         cv::imshow(config.windowName, display);
     }
     
-    void handleInput(RuntimeState& state) {
+    char handleInput(RuntimeState& state) {
         char key = (char)cv::waitKey(30);
         if (key == 27 || key == 'q') { 
             state.isRunning = false;
@@ -67,5 +67,6 @@ namespace DisplayManager {
             state.useRoi = false;
             state.prevFrame = cv::Mat(); 
         }
+        return key;
     }
 }

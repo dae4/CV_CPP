@@ -25,4 +25,5 @@ private:
     void executeTrackerMode();
     void executeCanvasMode();
     void executeYOLOMode();
+    void executeTrafficMode();
 };

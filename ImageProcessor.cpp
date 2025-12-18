@@ -552,9 +552,11 @@ namespace ImageProcessor {
 
             // [디버깅] 점수가 설정값보다 높으면 로그 출력
             if (max_class_score > config.yoloScoreThreshold) {
-                
-                // ★★★ 여기가 핵심! 찾았으면 로그를 찍어라 ★★★
-                std::cout << "[YOLO] Found Class: " << class_id.x 
+                int classId = class_id.x;
+                std::string className = state.yoloClasses[classId];
+                if (className == "car" || className == "truck" || className == "bus" || className == "motorcycle") {
+
+                    std::cout << "[YOLO] Found Class: " << class_id.x 
                           << " (" << (state.yoloClasses.empty() ? "?" : state.yoloClasses[class_id.x]) << ")"
                           << " Score: " << max_class_score << std::endl;
 
@@ -582,6 +584,7 @@ namespace ImageProcessor {
                 confidences.push_back((float)max_class_score);
                 class_ids.push_back(class_id.x);
                 detectCount++;
+                }
             }
             data += 84;
         }
@@ -601,7 +604,7 @@ namespace ImageProcessor {
 
             // [간이 트래킹] 이전 프레임의 점들 중 가장 가까운 점 찾기
             int matchedID = -1;
-            double minDist = 50.0; // 50픽셀 이내여야 같은 객체로 인정
+            double minDist = 10.0; // 10픽셀 이내여야 같은 객체로 인정
 
             for (auto& prev : state.prevPoints) {
                 double dist = cv::norm(center - prev.second);

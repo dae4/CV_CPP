@@ -24,7 +24,7 @@ struct AppConfig {
     // YOLO settings
     float yoloConfThreshold = 0.5f;
     float yoloNMSThreshold = 0.4f;
-    float yoloScoreThreshold = 0.5f;
+    float yoloScoreThreshold = 0.3f;
     std::string yoloModelPath = "yolov8n.onnx";
     std::string yoloClassPath = "classes.txt";
 

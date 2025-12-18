@@ -26,4 +26,5 @@ private:
     void executeCanvasMode();
     void executeYOLOMode();
     void executeTrafficMode();
+    void executeYOLOSegmentationMode();
 };

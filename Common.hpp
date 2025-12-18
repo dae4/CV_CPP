@@ -27,6 +27,13 @@ struct AppConfig {
     float yoloScoreThreshold = 0.3f;
     std::string yoloModelPath = "yolov8n.onnx";
     std::string yoloClassPath = "classes.txt";
+    
+    // YOLO Segmentation settings
+    std::string yoloSegModelPath = "yolov8n-seg.onnx";
+    std::string yoloSegClassPath = "classes.txt";
+    float yoloSegConfThreshold = 0.5f;
+    float yoloSegNMSThreshold = 0.4f; 
+    float yoloSegScoreThreshold = 0.3f;
 
 };
 
@@ -78,5 +85,10 @@ struct RuntimeState {
     int trafficCount = 0;
     std::map<int, cv::Point> prevPoints;
     int nextObjectID = 0;
+
+    // YOLO Instance Segmentation
+    cv::dnn::Net yoloSegNet;
+    std::vector<std::string> yoloSegClasses;
+    bool yoloSegModelLoaded = false;
 };
 

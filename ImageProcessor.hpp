@@ -32,5 +32,8 @@ namespace ImageProcessor {
 
     // [Feature 7] Traffic Counting
     void processTrafficCounting(RuntimeState& state,const AppConfig& config);   
+
+    // [Feature 8] YOLO Instance Segmentation
+    void processYOLOSegmentation(RuntimeState& state, const AppConfig& config);
     
 }

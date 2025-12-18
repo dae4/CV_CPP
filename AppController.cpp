@@ -16,6 +16,7 @@ void AppController::run() {
         std::cout << " 5. Air Canvas" << std::endl;
         std::cout << " 6. YOLO Object Detection" << std::endl;
         std::cout << " 7. Traffic Counting" << std::endl;
+        std::cout << " 8. YOLO Instance Segmentation" << std::endl; 
         std::cout << " 0. Exit" << std::endl;
         std::cout << " Select >> ";
         std::cin >> choice;
@@ -34,6 +35,7 @@ void AppController::run() {
             case 5: executeCanvasMode(); break;
             case 6: executeYOLOMode(); break;
             case 7: executeTrafficMode(); break;
+            case 8: executeYOLOSegmentationMode(); break;
             default: std::cout << "Invalid Selection." << std::endl;
         }
     }
@@ -202,4 +204,25 @@ void AppController::executeTrafficMode() {
         if (DisplayManager::handleInput(state) == 'q') break;
     }
     cap.release();
+}
+
+void AppController::executeYOLOSegmentationMode() {
+    if (!setupMode("Mode: YOLO Instance Segmentation")) return;
+    
+    UtilityTimer timer;
+
+    while (state.isRunning) {
+        timer.update();
+
+        cap >> state.currentFrame;
+        if (state.currentFrame.empty()) break;
+
+        ImageProcessor::processYOLOSegmentation(state, config); // Algo Call
+
+        ImageProcessor::renderFPS(state.currentFrame, timer.getFpsString()); // Render FPS
+
+        cv::imshow(config.windowName, state.currentFrame);
+        DisplayManager::handleInput(state);
+    }
+    cv::destroyAllWindows();
 }

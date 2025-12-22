@@ -29,7 +29,7 @@ struct AppConfig {
     std::string yoloClassPath = "classes.txt";
     
     // YOLO Segmentation settings
-    std::string yoloSegModelPath = "yolov8n-seg.onnx";
+    std::string yoloSegModelPath = "C:\\Users\\3210m\\Desktop\\CV_CPP\\build\\yolov8n-seg.onnx";
     std::string yoloSegClassPath = "classes.txt";
     float yoloSegConfThreshold = 0.5f;
     float yoloSegNMSThreshold = 0.4f; 

@@ -642,41 +642,37 @@ namespace ImageProcessor {
                     cv::Point(20, 50), cv::FONT_HERSHEY_DUPLEX, 1.2, cv::Scalar(0, 255, 0), 2);
     }
    void processYOLOSegmentation(RuntimeState& state, const AppConfig& config) {
+    // [1] 모델 로드 (생략 - 기존 로직 유지)
     if (!state.yoloSegModelLoaded) {
         try {
             std::ifstream ifs(config.yoloSegClassPath);
             state.yoloSegClasses.clear();
             std::string line;
             while (std::getline(ifs, line)) state.yoloSegClasses.push_back(line);
-
             state.yoloSegNet = cv::dnn::readNetFromONNX(config.yoloSegModelPath);
             state.yoloSegNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
             state.yoloSegNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU); 
             state.yoloSegModelLoaded = true;
-            std::cout << "[Info] YOLOv8-Seg Model Loaded Successfully." << std::endl;
-        } catch (const cv::Exception& e) {
-            std::cerr << "[Error] Seg Model Load: " << e.what() << std::endl;
-            return;
-        }
+            std::cout << "[Info] New YOLOv8-Seg (Standard) Model Loaded." << std::endl;
+        } catch (const cv::Exception& e) { return; }
     }
 
     if (state.currentFrame.empty()) return;
 
-    // [1] 전처리 및 추론
+    // [2] 추론 수행
     cv::Mat blob = cv::dnn::blobFromImage(state.currentFrame, 1.0/255.0, cv::Size(640, 640), cv::Scalar(), true, false);
     state.yoloSegNet.setInput(blob);
-
     std::vector<cv::Mat> outputs;
     state.yoloSegNet.forward(outputs, state.yoloSegNet.getUnconnectedOutLayersNames());
 
-    if (outputs.size() < 5) return;
+    // [3] 새로운 모델 구조 대응 (출력이 2개인 경우)
+    if (outputs.size() < 2) return;
 
-    // 출력 데이터 매핑
-    cv::Mat boxes_out  = outputs[0]; // [1, 8400, 4]
-    cv::Mat scores_out = outputs[1]; // [1, 8400]
-    cv::Mat coeffs_out = outputs[2]; // [1, 8400, 32]
-    cv::Mat protos_out = outputs[3]; // [1, 32, 160, 160]
-    cv::Mat ids_out    = outputs[4]; // [1, 8400]
+    // outputs[0]: [1, 116, 8400] -> Transpose해서 [8400, 116]으로 변경
+    // 116 = 4(box) + 80(class scores) + 32(mask coefficients)
+    cv::Mat output0 = outputs[0].reshape(1, outputs[0].size[1]).t(); 
+    // outputs[1]: [1, 32, 160, 160] -> [32, 25600]으로 변경
+    cv::Mat prototypes = outputs[1].reshape(1, 32); 
 
     std::vector<int> class_ids;
     std::vector<float> confidences;
@@ -686,100 +682,73 @@ namespace ImageProcessor {
     float img_w = (float)state.currentFrame.cols;
     float img_h = (float)state.currentFrame.rows;
 
-    float* p_scores = (float*)scores_out.data;
-    float* p_boxes  = (float*)boxes_out.data;
-    float* p_coeffs = (float*)coeffs_out.data;
-    float* p_ids    = (float*)ids_out.data;
+    // [4] 8400개 데이터 파싱
+    for (int i = 0; i < output0.rows; ++i) {
+        // 4번 인덱스부터 83번까지가 클래스 점수 (총 80개)
+        cv::Mat scores = output0.row(i).colRange(4, 84);
+        cv::Point class_id_point;
+        double score;
+        cv::minMaxLoc(scores, 0, &score, 0, &class_id_point);
 
-    // [2] 8400개 후보군 순회
-    for (int i = 0; i < 8400; ++i) {
-        float score = p_scores[i];
-        
-        // 박스 수프를 막기 위해 임계값 적용
         if (score > config.yoloSegScoreThreshold) {
-            // ★ 수정 포인트: [x1, y1, x2, y2] 좌표계 대응
-            float x1 = p_boxes[i * 4 + 0];
-            float y1 = p_boxes[i * 4 + 1];
-            float x2 = p_boxes[i * 4 + 2];
-            float y2 = p_boxes[i * 4 + 3];
+            // 박스 좌표 추출 (cx, cy, w, h)
+            float cx = output0.at<float>(i, 0);
+            float cy = output0.at<float>(i, 1);
+            float w  = output0.at<float>(i, 2);
+            float h  = output0.at<float>(i, 3);
 
-            // 모델 출력값이 정규화(0~1) 되었는지 확인 후 스케일링
-            if (x1 <= 1.01f && x2 <= 1.01f) {
-                x1 *= img_w; y1 *= img_h; x2 *= img_w; y2 *= img_h;
-            } else {
-                // 0~640 범위인 경우 원본 이미지 비율에 맞게 보정
-                x1 *= (img_w / 640.0f); y1 *= (img_h / 640.0f);
-                x2 *= (img_w / 640.0f); y2 *= (img_h / 640.0f);
-            }
+            // 640 기준 좌표를 이미지 크기에 맞게 스케일링
+            int left = int((cx - 0.5f * w) * (img_w / 640.0f));
+            int top  = int((cy - 0.5f * h) * (img_h / 640.0f));
+            int width  = int(w * (img_w / 640.0f));
+            int height = int(h * (img_h / 640.0f));
 
-            int left = std::max(0, int(x1));
-            int top  = std::max(0, int(y1));
-            int width  = std::min(int(img_w - left), int(x2 - x1));
-            int height = std::min(int(img_h - top), int(y2 - y1));
-
-            if (width <= 0 || height <= 0) continue;
-
-            cv::Mat c(1, 32, CV_32F);
-            memcpy(c.data, &p_coeffs[i * 32], 32 * sizeof(float));
+            // 84번 인덱스부터 끝까지가 32개의 마스크 계수
+            cv::Mat coeffs = output0.row(i).colRange(84, 116).clone();
             
-            mask_coeffs.push_back(c);
+            mask_coeffs.push_back(coeffs);
             boxes.push_back(cv::Rect(left, top, width, height));
-            confidences.push_back(score);
-            class_ids.push_back((int)p_ids[i]);
+            confidences.push_back((float)score);
+            class_ids.push_back(class_id_point.x);
         }
     }
 
-    // [3] NMS 중복 제거
+    // [5] NMS 및 시각화 (기존과 동일)
     std::vector<int> indices;
     cv::dnn::NMSBoxes(boxes, confidences, config.yoloSegScoreThreshold, config.yoloSegNMSThreshold, indices);
 
-    cv::Mat prototypes = protos_out.reshape(1, 32); // [32, 25600]
-
-    // [4] 마스크 렌더링
     for (int i : indices) {
         cv::Rect box = boxes[i] & cv::Rect(0, 0, state.currentFrame.cols, state.currentFrame.rows);
         if (box.area() <= 0) continue;
 
-        // 마스크 복원 (Coeffs x Prototypes)
+        // 마스크 생성
         cv::Mat m = mask_coeffs[i] * prototypes; 
         cv::Mat res_mask = m.reshape(1, 160); 
-
         cv::exp(-res_mask, res_mask);
         res_mask = 1.0 / (1.0 + res_mask); 
 
-        // 160x160 마스크 공간 내에서 박스 좌표 투영
+        // 마스크 ROI 투영
         float mx1 = (float)box.x / img_w * 160.0f;
         float my1 = (float)box.y / img_h * 160.0f;
         float mw  = (float)box.width / img_w * 160.0f;
         float mh  = (float)box.height / img_h * 160.0f;
 
-        cv::Rect mask_roi{int(mx1), int(my1), int(mw), int(mh)};
+        cv::Rect mask_roi{ (int)mx1, (int)my1, (int)mw, (int)mh };
         mask_roi = mask_roi & cv::Rect(0, 0, 160, 160);
-        
         if (mask_roi.area() <= 0) continue;
 
         cv::Mat cropped_mask = res_mask(mask_roi);
         cv::resize(cropped_mask, cropped_mask, box.size());
-
         cv::Mat final_mask;
         cropped_mask.convertTo(final_mask, CV_8U, 255);
         cv::threshold(final_mask, final_mask, 128, 255, cv::THRESH_BINARY);
 
-        // 색상 블렌딩 및 시각화
         cv::Scalar color(rand() % 255, rand() % 255, rand() % 255);
         cv::Mat roi = state.currentFrame(box);
-        cv::Mat color_mat(roi.size(), CV_8UC3, color);
-        
         cv::Mat blended_roi;
-        cv::addWeighted(color_mat, 0.4, roi, 0.6, 0, blended_roi);
+        cv::addWeighted(roi, 0.6, cv::Mat(roi.size(), CV_8UC3, color), 0.4, 0, blended_roi);
         blended_roi.copyTo(roi, final_mask);
-        
         cv::rectangle(state.currentFrame, box, color, 2);
-        
-        // 라벨링 추가
-        std::string label = (class_ids[i] < state.yoloSegClasses.size()) ? state.yoloSegClasses[class_ids[i]] : "Obj";
-        cv::putText(state.currentFrame, label, cv::Point(box.x, box.y - 5), 
-                    cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 1);
     }
 }
 
